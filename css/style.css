@@ -52,6 +52,17 @@ body {
   flex-wrap: wrap;
 }
 .app-header h1 { font-size: 20px; margin: 0; }
+
+.sync-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  vertical-align: 3px;
+  margin-left: 8px;
+}
+.sync-badge.online { background: var(--green-soft); color: var(--green); }
+.sync-badge.offline { background: var(--amber-soft); color: var(--amber); }
 .header-actions { display: flex; gap: 8px; }
 
 .tabs {

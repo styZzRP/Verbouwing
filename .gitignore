@@ -1,0 +1,3 @@
+# De live database met jullie eigen verbouwgegevens hoort niet in git;
+# gebruik de Export-knop in de app voor backups.
+/data/

@@ -22,8 +22,83 @@ function loadState() {
   return seedData();
 }
 
+/* ---- Synchronisatie met de bestandsdatabase (server.js) ----
+   Draait de app via de server (http://...), dan wordt alle data in
+   data/ons-thuis-data.json bewaard en gedeeld tussen apparaten.
+   Open je index.html rechtstreeks (file://), dan werkt alles zoals
+   voorheen puur lokaal via localStorage. */
+
+const API = 'api/data';
+const serverMode = location.protocol !== 'file:';
+let serverOnline = false;
+let pushTimer = null;
+
 function save() {
+  state.rev = (state.rev || 0) + 1;
+  state.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (serverMode) {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushToServer, 400); // wijzigingen bundelen
+  }
+}
+
+async function pushToServer() {
+  try {
+    const res = await fetch(API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state),
+    });
+    setSyncStatus(res.ok);
+  } catch (e) {
+    setSyncStatus(false);
+  }
+}
+
+// Bezig met typen of staat de popup open? Dan even geen verse serverdata
+// toepassen, anders verlies je je invoer door de her-render.
+function isEditing() {
+  const ae = document.activeElement;
+  return (ae && content.contains(ae) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(ae.tagName))
+    || !document.getElementById('modal-overlay').hidden;
+}
+
+async function syncFromServer() {
+  try {
+    const res = await fetch(API, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const remote = await res.json();
+    setSyncStatus(true);
+
+    const remoteRev = remote && Array.isArray(remote.tasks) ? (remote.rev || 0) : -1;
+    const localRev = state.rev || 0;
+
+    if (remoteRev > localRev && !isEditing()) {
+      // Ander apparaat heeft nieuwere gegevens → overnemen
+      state = remote;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    } else if (localRev > remoteRev) {
+      // Wij lopen voor (bijv. eerste start, of wijzigingen tijdens
+      // een verbroken verbinding) → naar de server sturen
+      pushToServer();
+    }
+  } catch (e) {
+    setSyncStatus(false);
+  }
+}
+
+function setSyncStatus(online) {
+  serverOnline = online;
+  const el = document.getElementById('sync-status');
+  if (!serverMode) { el.hidden = true; return; }
+  el.hidden = false;
+  el.className = 'sync-badge ' + (online ? 'online' : 'offline');
+  el.textContent = online ? '● gesynchroniseerd' : '● offline – lokaal opgeslagen';
+  el.title = online
+    ? 'Verbonden met de database (data/ons-thuis-data.json). Wijzigingen zijn op alle apparaten zichtbaar.'
+    : 'Geen verbinding met de server. Wijzigingen worden lokaal bewaard en gesynchroniseerd zodra de server weer bereikbaar is.';
 }
 
 function uid(prefix) {
@@ -713,6 +788,8 @@ document.getElementById('import-file').addEventListener('change', e => {
       const data = JSON.parse(reader.result);
       if (!data || !Array.isArray(data.tasks)) throw new Error('geen geldige backup');
       if (!confirm('Backup terugzetten? De huidige gegevens worden overschreven.')) return;
+      // Versieteller doorzetten, anders draait de synchronisatie de import terug
+      data.rev = Math.max(data.rev || 0, state.rev || 0);
       state = data;
       save();
       render();
@@ -726,10 +803,16 @@ document.getElementById('import-file').addEventListener('change', e => {
 
 document.getElementById('btn-reset').addEventListener('click', () => {
   if (!confirm('Alles terugzetten naar de standaardplanning? Al je wijzigingen gaan verloren.\n\nTip: maak eerst een export als backup.')) return;
+  const rev = state.rev || 0; // teller doorzetten, anders draait de sync de reset terug
   state = seedData();
+  state.rev = rev;
   save();
   render();
 });
 
 /* ---------------- Start ---------------- */
 render();
+if (serverMode) {
+  syncFromServer();               // direct de gedeelde database inladen
+  setInterval(syncFromServer, 5000); // en wijzigingen van andere apparaten volgen
+}

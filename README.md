@@ -5,11 +5,30 @@ Gebaseerd op het Ontwerpdocument v1.0.
 
 ## Gebruik
 
-Open `index.html` in de browser — meer is er niet nodig. Er is geen installatie,
-server of internetverbinding vereist.
+### Op meerdere apparaten (aanbevolen)
 
-Alle gegevens worden automatisch opgeslagen in de browser (localStorage) op het
-apparaat waarop je werkt.
+Start de meegeleverde mini-server op één apparaat dat aan staat als je werkt
+(laptop, NAS, Raspberry Pi…). Vereist alleen [Node.js](https://nodejs.org) —
+geen npm-pakketten.
+
+- **Windows**: dubbelklik `start-planner.bat`
+- **Mac/Linux**: `./start-planner.sh` (of `node server.js`)
+
+De server toont bij het starten welk adres je op andere apparaten opent,
+bijvoorbeeld `http://192.168.1.23:3000` (zelfde wifi-netwerk). Alle gegevens
+worden automatisch bewaard in het databasebestand `data/ons-thuis-data.json`
+en elke 5 seconden gesynchroniseerd: vink je op de laptop een taak af, dan zie
+je dat even later ook op je telefoon.
+
+Rechtsboven in de app zie je de status: **● gesynchroniseerd** of
+**● offline – lokaal opgeslagen**. Valt de verbinding weg, dan werkt de app
+gewoon door en worden je wijzigingen alsnog verstuurd zodra de server weer
+bereikbaar is.
+
+### Op één apparaat, zonder server
+
+Open `index.html` rechtstreeks in de browser. Alles wordt dan lokaal in de
+browser opgeslagen (localStorage) op het apparaat waarop je werkt.
 
 ## Tabbladen
 
@@ -42,5 +61,6 @@ schilderwerk") zit als afhankelijkheden in de voorgevulde planning.
 - **Import**: zet een eerder geëxporteerd bestand terug.
 - **Reset**: terug naar de standaardplanning uit het ontwerpdocument.
 
-> Tip: maak af en toe een export, zeker vóór grote wijzigingen. localStorage is
-> per browser en per apparaat.
+> Tip: maak af en toe een export, zeker vóór grote wijzigingen. Draai je met
+> de server, dan is ook een kopietje van `data/ons-thuis-data.json` een
+> volledige backup.
