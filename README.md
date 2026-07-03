@@ -25,6 +25,41 @@ Rechtsboven in de app zie je de status: **● gesynchroniseerd** of
 gewoon door en worden je wijzigingen alsnog verstuurd zodra de server weer
 bereikbaar is.
 
+### Via GitHub (overal te gebruiken, geen eigen server nodig)
+
+De app kan ook volledig via GitHub draaien: GitHub Pages host de app en de
+planning wordt als bestand in deze repository opgeslagen. Werkt op elk
+apparaat met internet, dus ook buitenshuis.
+
+**Eenmalig instellen:**
+
+1. Zet de app op GitHub Pages: repository → *Settings* → *Pages* →
+   *Deploy from a branch* → kies je hoofdbranch en `/ (root)`. De app staat
+   dan op `https://<gebruikersnaam>.github.io/Verbouwing/`.
+2. Maak een token: GitHub → *Settings* → *Developer settings* →
+   *Personal access tokens* → *Fine-grained tokens* → *Generate new token*.
+   Geef het alleen toegang tot deze repository, met als enige permissie
+   **Contents: Read & write**.
+3. Open de app, klik rechtsboven op **🔄 Sync** en plak het token. Eigenaar
+   en repository worden automatisch ingevuld. Herhaal dit op elk apparaat
+   (telefoon, tablet, laptop).
+
+De planning wordt bewaard in `planner-data.json` op de aparte branch
+`planner-data` (wordt automatisch aangemaakt). Die branch staat los van je
+hoofdbranch, zodat de gegevens niet op de openbare Pages-site belanden en
+elke wijziging als commit terug te vinden is — je hebt dus automatisch een
+versiegeschiedenis van je hele planning.
+
+> **Let op:** een Pages-site van een privé-repository is bij een gratis
+> GitHub-account openbaar bereikbaar (alleen de app zelf, niet je gegevens —
+> die staan veilig in de repository en zijn alleen met token te lezen).
+> Het token staat opgeslagen in de browser van je eigen apparaten; deel het
+> met niemand en geef het nooit meer rechten dan Contents op deze ene
+> repository.
+
+De GitHub-sync werkt overigens ook als je `index.html` lokaal opent — de
+🔄 Sync-knop is er altijd.
+
 ### Op één apparaat, zonder server
 
 Open `index.html` rechtstreeks in de browser. Alles wordt dan lokaal in de

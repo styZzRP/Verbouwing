@@ -22,25 +22,58 @@ function loadState() {
   return seedData();
 }
 
-/* ---- Synchronisatie met de bestandsdatabase (server.js) ----
-   Draait de app via de server (http://...), dan wordt alle data in
-   data/ons-thuis-data.json bewaard en gedeeld tussen apparaten.
-   Open je index.html rechtstreeks (file://), dan werkt alles zoals
-   voorheen puur lokaal via localStorage. */
+/* ---- Synchronisatie ----
+   Drie manieren van opslaan, in deze volgorde geprobeerd:
+   1. 'server': de eigen mini-server (server.js) met data/ons-thuis-data.json
+   2. 'github': een bestand in je GitHub-repository (werkt ook via
+      GitHub Pages en buitenshuis; instellen via de 🔄 Sync-knop)
+   3. 'local': alleen localStorage op dit apparaat (file:// zonder config)
+   Overal geldt: hoogste versieteller (rev) wint. */
 
 const API = 'api/data';
-const serverMode = location.protocol !== 'file:';
-let serverOnline = false;
+const GH_KEY = 'onsThuisGitHub';
+const GH_PATH = 'planner-data.json';
+let backend = 'local';
+let ghConfig = loadGhConfig();
+let ghSha = null; // laatst bekende versie-hash van het bestand op GitHub
 let pushTimer = null;
+let syncTimer = null;
+
+function loadGhConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(GH_KEY));
+    if (c && c.token && c.owner && c.repo) return c;
+  } catch (e) { /* ongeldige config negeren */ }
+  return null;
+}
 
 function save() {
   state.rev = (state.rev || 0) + 1;
   state.updatedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (serverMode) {
+  if (backend !== 'local') {
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(pushToServer, 400); // wijzigingen bundelen
+    pushTimer = setTimeout(pushToBackend, 400); // wijzigingen bundelen
   }
+}
+
+function pushToBackend() {
+  if (backend === 'server') return pushToServer();
+  if (backend === 'github') return pushToGitHub();
+}
+
+function adoptRemote(remote) {
+  state = remote;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+}
+
+// Bezig met typen of staat een popup open? Dan even geen verse data van
+// buiten toepassen, anders verlies je je invoer door de her-render.
+function isEditing() {
+  const ae = document.activeElement;
+  return (ae && content.contains(ae) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(ae.tagName))
+    || !document.getElementById('modal-overlay').hidden;
 }
 
 async function pushToServer() {
@@ -56,49 +89,168 @@ async function pushToServer() {
   }
 }
 
-// Bezig met typen of staat de popup open? Dan even geen verse serverdata
-// toepassen, anders verlies je je invoer door de her-render.
-function isEditing() {
-  const ae = document.activeElement;
-  return (ae && content.contains(ae) && ['INPUT', 'SELECT', 'TEXTAREA'].includes(ae.tagName))
-    || !document.getElementById('modal-overlay').hidden;
+/* -- GitHub als database (Contents API) -- */
+
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
 }
 
-async function syncFromServer() {
+function b64decode(b64) {
+  const bin = atob(b64.replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+
+function ghApi() {
+  return 'https://api.github.com/repos/' + ghConfig.owner + '/' + ghConfig.repo;
+}
+
+function ghBranch() {
+  return ghConfig.branch || 'planner-data';
+}
+
+function ghHeaders() {
+  return {
+    'Authorization': 'Bearer ' + ghConfig.token,
+    'Accept': 'application/vnd.github+json',
+  };
+}
+
+// De databranch staat los van main, zodat de gegevens niet op de
+// (openbare) Pages-site terechtkomen. Bestaat hij nog niet, maak hem
+// dan aan vanaf de standaardbranch.
+async function ghEnsureBranch() {
+  const check = await fetch(ghApi() + '/git/ref/heads/' + encodeURIComponent(ghBranch()), { headers: ghHeaders(), cache: 'no-store' });
+  if (check.ok) return;
+  const repoRes = await fetch(ghApi(), { headers: ghHeaders() });
+  if (!repoRes.ok) throw new Error('Repository niet gevonden of token ongeldig (' + repoRes.status + ')');
+  const repo = await repoRes.json();
+  const base = await fetch(ghApi() + '/git/ref/heads/' + encodeURIComponent(repo.default_branch), { headers: ghHeaders() });
+  if (!base.ok) throw new Error('Standaardbranch niet gevonden (' + base.status + ')');
+  const sha = (await base.json()).object.sha;
+  const created = await fetch(ghApi() + '/git/refs', {
+    method: 'POST',
+    headers: ghHeaders(),
+    body: JSON.stringify({ ref: 'refs/heads/' + ghBranch(), sha }),
+  });
+  if (!created.ok && created.status !== 422) { // 422 = bestond al (race)
+    throw new Error('Kon de databranch niet aanmaken (' + created.status + ')');
+  }
+}
+
+async function ghLoad() {
+  const res = await fetch(
+    ghApi() + '/contents/' + GH_PATH + '?ref=' + encodeURIComponent(ghBranch()) + '&_=' + Date.now(),
+    { headers: ghHeaders(), cache: 'no-store' }
+  );
+  if (res.status === 404) { ghSha = null; return null; } // nog geen data
+  if (!res.ok) throw new Error('GitHub antwoordde met ' + res.status);
+  const j = await res.json();
+  ghSha = j.sha;
+  return JSON.parse(b64decode(j.content));
+}
+
+async function pushToGitHub(tweedePoging) {
   try {
-    const res = await fetch(API, { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.status);
-    const remote = await res.json();
+    const body = {
+      message: 'Ons Thuis: planning bijgewerkt (rev ' + (state.rev || 0) + ')',
+      content: b64encode(JSON.stringify(state)),
+      branch: ghBranch(),
+    };
+    if (ghSha) body.sha = ghSha;
+    const res = await fetch(ghApi() + '/contents/' + GH_PATH, {
+      method: 'PUT',
+      headers: ghHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      ghSha = (await res.json()).content.sha;
+      setSyncStatus(true);
+      return;
+    }
+    if ([404, 409, 422].includes(res.status) && !tweedePoging) {
+      // Branch ontbreekt nog, of een ander apparaat was ons net voor:
+      // branch garanderen, verse versie ophalen en opnieuw beslissen.
+      await ghEnsureBranch();
+      const remote = await ghLoad();
+      if (remote && Array.isArray(remote.tasks) && (remote.rev || 0) > (state.rev || 0)) {
+        if (!isEditing()) adoptRemote(remote);
+        setSyncStatus(true);
+        return;
+      }
+      return pushToGitHub(true);
+    }
+    throw new Error('GitHub antwoordde met ' + res.status);
+  } catch (e) {
+    setSyncStatus(false);
+  }
+}
+
+/* -- Gezamenlijke sync-cyclus -- */
+
+async function syncTick() {
+  if (backend === 'local') return;
+  try {
+    let remote;
+    if (backend === 'server') {
+      const res = await fetch(API, { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status);
+      remote = await res.json();
+    } else {
+      remote = await ghLoad();
+    }
     setSyncStatus(true);
 
     const remoteRev = remote && Array.isArray(remote.tasks) ? (remote.rev || 0) : -1;
     const localRev = state.rev || 0;
 
-    if (remoteRev > localRev && !isEditing()) {
+    if (remoteRev > localRev) {
       // Ander apparaat heeft nieuwere gegevens → overnemen
-      state = remote;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      render();
+      if (!isEditing()) adoptRemote(remote);
     } else if (localRev > remoteRev) {
-      // Wij lopen voor (bijv. eerste start, of wijzigingen tijdens
-      // een verbroken verbinding) → naar de server sturen
-      pushToServer();
+      // Wij lopen voor (eerste start, of wijzigingen tijdens een
+      // verbroken verbinding) → versturen
+      pushToBackend();
     }
   } catch (e) {
     setSyncStatus(false);
   }
 }
 
+function startSyncLoop() {
+  clearInterval(syncTimer);
+  if (backend === 'local') { setSyncStatus(false); return; }
+  syncTick();
+  syncTimer = setInterval(syncTick, backend === 'server' ? 5000 : 15000);
+}
+
+async function initSync() {
+  if (location.protocol !== 'file:') {
+    try {
+      const res = await fetch(API, { cache: 'no-store' });
+      if (res.ok && (res.headers.get('content-type') || '').includes('json')) {
+        backend = 'server';
+      }
+    } catch (e) { /* geen eigen server, prima */ }
+  }
+  if (backend === 'local' && ghConfig) backend = 'github';
+  startSyncLoop();
+}
+
 function setSyncStatus(online) {
-  serverOnline = online;
   const el = document.getElementById('sync-status');
-  if (!serverMode) { el.hidden = true; return; }
+  if (backend === 'local') { el.hidden = true; return; }
+  const via = backend === 'github' ? 'GitHub' : 'thuisserver';
   el.hidden = false;
   el.className = 'sync-badge ' + (online ? 'online' : 'offline');
-  el.textContent = online ? '● gesynchroniseerd' : '● offline – lokaal opgeslagen';
+  el.textContent = online ? '● gesynchroniseerd via ' + via : '● offline – lokaal opgeslagen';
   el.title = online
-    ? 'Verbonden met de database (data/ons-thuis-data.json). Wijzigingen zijn op alle apparaten zichtbaar.'
-    : 'Geen verbinding met de server. Wijzigingen worden lokaal bewaard en gesynchroniseerd zodra de server weer bereikbaar is.';
+    ? 'Verbonden via ' + via + '. Wijzigingen zijn op alle apparaten zichtbaar.'
+    : 'Geen verbinding. Wijzigingen worden lokaal bewaard en gesynchroniseerd zodra er weer verbinding is.';
 }
 
 function uid(prefix) {
@@ -801,6 +953,66 @@ document.getElementById('import-file').addEventListener('change', e => {
   e.target.value = '';
 });
 
+/* ---- GitHub-sync instellingen ---- */
+
+const ghModal = document.getElementById('gh-modal');
+const ghResult = document.getElementById('gh-test-result');
+
+document.getElementById('btn-sync-settings').addEventListener('click', () => {
+  // Velden vooraf invullen: bestaande config, of raden vanaf het Pages-adres
+  const gissing = location.hostname.match(/^([^.]+)\.github\.io$/);
+  document.getElementById('gh-token').value = ghConfig ? ghConfig.token : '';
+  document.getElementById('gh-owner').value = ghConfig ? ghConfig.owner : (gissing ? gissing[1] : '');
+  document.getElementById('gh-repo').value = ghConfig ? ghConfig.repo : (gissing ? (location.pathname.split('/')[1] || '') : '');
+  document.getElementById('gh-branch').value = ghConfig ? ghBranch() : 'planner-data';
+  ghResult.textContent = '';
+  ghResult.className = '';
+  ghModal.hidden = false;
+});
+
+document.getElementById('gh-cancel').addEventListener('click', () => { ghModal.hidden = true; });
+ghModal.addEventListener('click', e => { if (e.target === ghModal) ghModal.hidden = true; });
+
+document.getElementById('gh-disconnect').addEventListener('click', () => {
+  localStorage.removeItem(GH_KEY);
+  ghConfig = null;
+  if (backend === 'github') {
+    backend = 'local';
+    startSyncLoop();
+  }
+  ghModal.hidden = true;
+});
+
+document.getElementById('gh-save').addEventListener('click', async () => {
+  const cfg = {
+    token: document.getElementById('gh-token').value.trim(),
+    owner: document.getElementById('gh-owner').value.trim(),
+    repo: document.getElementById('gh-repo').value.trim(),
+    branch: document.getElementById('gh-branch').value.trim() || 'planner-data',
+  };
+  if (!cfg.token || !cfg.owner || !cfg.repo) {
+    ghResult.textContent = 'Vul token, eigenaar en repository in.';
+    ghResult.className = 'err';
+    return;
+  }
+  ghResult.textContent = 'Verbinding testen…';
+  ghResult.className = '';
+  const vorige = ghConfig;
+  ghConfig = cfg;
+  try {
+    await ghEnsureBranch();
+    await ghLoad(); // test + haalt meteen de sha op
+    localStorage.setItem(GH_KEY, JSON.stringify(cfg));
+    if (backend !== 'server') backend = 'github';
+    startSyncLoop();
+    ghModal.hidden = true;
+  } catch (e) {
+    ghConfig = vorige;
+    ghResult.textContent = 'Verbinden mislukt: ' + e.message + '. Controleer het token (Contents: Read & write) en de repositorynaam.';
+    ghResult.className = 'err';
+  }
+});
+
 document.getElementById('btn-reset').addEventListener('click', () => {
   if (!confirm('Alles terugzetten naar de standaardplanning? Al je wijzigingen gaan verloren.\n\nTip: maak eerst een export als backup.')) return;
   const rev = state.rev || 0; // teller doorzetten, anders draait de sync de reset terug
@@ -812,7 +1024,4 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 
 /* ---------------- Start ---------------- */
 render();
-if (serverMode) {
-  syncFromServer();               // direct de gedeelde database inladen
-  setInterval(syncFromServer, 5000); // en wijzigingen van andere apparaten volgen
-}
+initSync();

@@ -434,6 +434,34 @@ tfoot td {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- GitHub-sync formulier ---------- */
+.gh-form { padding-bottom: 10px; }
+.gh-form .gh-hint { color: var(--text-muted); font-size: 13px; margin: 4px 0 12px; }
+.gh-form label {
+  display: block;
+  margin: 10px 0;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: default;
+}
+.gh-form label:hover { background: none; }
+.gh-form input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+  background: var(--surface);
+  color: var(--text);
+}
+.gh-form input:focus { outline: none; border-color: var(--accent); }
+#gh-test-result { min-height: 20px; font-size: 13px; margin: 8px 0 4px; }
+#gh-test-result.ok { color: var(--green); }
+#gh-test-result.err { color: var(--red); }
+
 /* ---------- Klein scherm ---------- */
 @media (max-width: 700px) {
   main { padding: 12px; }

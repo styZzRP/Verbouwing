@@ -12,6 +12,7 @@
     <div class="header-inner">
       <h1>🏠 Project Ons Thuis <span id="sync-status" class="sync-badge" hidden></span></h1>
       <div class="header-actions">
+        <button id="btn-sync-settings" class="btn btn-ghost" title="Synchronisatie via GitHub instellen">🔄 Sync</button>
         <button id="btn-export" class="btn btn-ghost" title="Maak een reservekopie van alle gegevens">⬇ Export</button>
         <button id="btn-import" class="btn btn-ghost" title="Zet een reservekopie terug">⬆ Import</button>
         <button id="btn-reset" class="btn btn-ghost btn-danger" title="Terug naar de standaardplanning">↺ Reset</button>
@@ -39,6 +40,42 @@
       <div class="modal-actions">
         <button id="modal-cancel" class="btn btn-ghost">Annuleren</button>
         <button id="modal-save" class="btn btn-primary">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Popup voor GitHub-synchronisatie -->
+  <div id="gh-modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h3>🔄 Synchronisatie via GitHub</h3>
+      <div class="modal-body gh-form">
+        <p class="gh-hint">
+          Sla de planning op in je GitHub-repository, zodat je op elk apparaat
+          (ook buitenshuis) dezelfde gegevens ziet. De gegevens komen op een
+          aparte branch, zodat ze niet op de openbare Pages-site belanden.
+          Maak op GitHub een <strong>fine-grained token</strong> aan
+          (Settings → Developer settings → Personal access tokens) met alleen
+          <em>Contents: Read &amp; write</em> voor deze ene repository.
+        </p>
+        <label>GitHub-token
+          <input id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off">
+        </label>
+        <label>Eigenaar (gebruikersnaam)
+          <input id="gh-owner" placeholder="styZzRP">
+        </label>
+        <label>Repository
+          <input id="gh-repo" placeholder="Verbouwing">
+        </label>
+        <label>Branch voor de gegevens
+          <input id="gh-branch" placeholder="planner-data">
+        </label>
+        <div id="gh-test-result"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="gh-disconnect" class="btn btn-ghost btn-danger">Verbinding verwijderen</button>
+        <span style="flex:1"></span>
+        <button id="gh-cancel" class="btn btn-ghost">Annuleren</button>
+        <button id="gh-save" class="btn btn-primary">Opslaan &amp; verbinden</button>
       </div>
     </div>
   </div>
