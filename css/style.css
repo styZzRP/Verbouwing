@@ -128,6 +128,10 @@ main {
 }
 .btn-icon:hover { background: var(--red-soft); color: var(--red); }
 
+/* Eerste kolom van de planning: blokkade-indicator + verwijderknop,
+   vooraan zodat ze zonder scrollen bereikbaar zijn */
+td.row-tools { white-space: nowrap; }
+
 /* ---------- Kaarten & panelen ---------- */
 .grid { display: grid; gap: 16px; }
 .grid-stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
@@ -277,11 +281,13 @@ tr.fase-header td {
   text-transform: uppercase;
   letter-spacing: .4px;
 }
+/* Knop direct naast de fasenaam, links — zo blijft hij ook zichtbaar
+   wanneer de brede tabel horizontaal scrollt */
 .fase-header-flex {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 14px;
 }
 .btn-fase-add {
   border: 1px solid var(--accent);

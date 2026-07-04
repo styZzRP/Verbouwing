@@ -445,10 +445,10 @@ function renderPlanning() {
   let lastFase = null;
   for (const t of tasks) {
     if (t.fase !== lastFase) {
-      rows.push(`<tr class="fase-header"><td colspan="13">
+      rows.push(`<tr class="fase-header"><td colspan="12">
         <div class="fase-header-flex">
           <span>${esc(FASEN[t.fase] || 'Fase ' + t.fase)}</span>
-          <button class="btn-fase-add" data-fase="${t.fase}" title="Taak toevoegen aan deze fase">＋ taak</button>
+          <button class="btn-fase-add" data-fase="${t.fase}" title="Taak toevoegen aan deze fase">＋ taak toevoegen</button>
         </div></td></tr>`);
       lastFase = t.fase;
     }
@@ -487,9 +487,9 @@ function renderPlanning() {
         <thead><tr>
           <th></th><th>Prio</th><th>Ruimte</th><th>Taak</th><th>Wie</th>
           <th>Start</th><th>Eind</th><th>Afhankelijk van</th><th>Status</th>
-          <th>% gereed</th><th>Materiaal</th><th>Opmerking</th><th></th>
+          <th>% gereed</th><th>Materiaal</th><th>Opmerking</th>
         </tr></thead>
-        <tbody>${rows.join('') || '<tr><td colspan="13" class="empty-note" style="padding:16px">Geen taken gevonden met deze filters.</td></tr>'}</tbody>
+        <tbody>${rows.join('') || '<tr><td colspan="12" class="empty-note" style="padding:16px">Geen taken gevonden met deze filters.</td></tr>'}</tbody>
       </table>
     </div>
     <div class="table-footer">
@@ -508,9 +508,12 @@ function taskRow(t) {
 
   return `
     <tr data-id="${t.id}" class="${t.status === 'Gereed' ? 'done' : ''} ${blocked && t.status !== 'Gereed' ? 'blocked-row' : ''}">
-      <td>${t.status === 'Gereed' ? '' : blocked
+      <td class="row-tools">
+        ${t.status === 'Gereed' ? '' : blocked
         ? `<span class="badge blocked" title="Wacht op: ${esc(blockingDeps(t).map(d => d.taak).join(', '))}">⛔</span>`
-        : `<span class="badge ready" title="Alle voorgaande taken zijn gereed – kan opgepakt worden">▶</span>`}</td>
+        : `<span class="badge ready" title="Alle voorgaande taken zijn gereed – kan opgepakt worden">▶</span>`}
+        <button class="btn-icon" data-action="delete" title="Taak verwijderen">🗑</button>
+      </td>
       <td>
         <select data-field="prioriteit">
           ${PRIORITEITEN.map(p => `<option ${t.prioriteit === p ? 'selected' : ''}>${p}</option>`).join('')}
@@ -534,7 +537,6 @@ function taskRow(t) {
       <td class="num"><input type="number" data-field="pct" min="0" max="100" step="5" value="${taskPct(t)}"></td>
       <td style="min-width:110px"><input data-field="materiaal" value="${esc(t.materiaal)}"></td>
       <td style="min-width:170px"><input data-field="opmerking" value="${esc(t.opmerking)}"></td>
-      <td><button class="btn-icon" data-action="delete" title="Taak verwijderen">🗑</button></td>
     </tr>`;
 }
 
