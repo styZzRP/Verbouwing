@@ -445,7 +445,11 @@ function renderPlanning() {
   let lastFase = null;
   for (const t of tasks) {
     if (t.fase !== lastFase) {
-      rows.push(`<tr class="fase-header"><td colspan="13">${esc(FASEN[t.fase] || 'Fase ' + t.fase)}</td></tr>`);
+      rows.push(`<tr class="fase-header"><td colspan="13">
+        <div class="fase-header-flex">
+          <span>${esc(FASEN[t.fase] || 'Fase ' + t.fase)}</span>
+          <button class="btn-fase-add" data-fase="${t.fase}" title="Taak toevoegen aan deze fase">＋ taak</button>
+        </div></td></tr>`);
       lastFase = t.fase;
     }
     rows.push(taskRow(t));
@@ -534,6 +538,18 @@ function taskRow(t) {
     </tr>`;
 }
 
+// Nieuwe taak onderaan de gekozen fase invoegen (blijft zo netjes gegroepeerd)
+function addTaskToFase(fase) {
+  const nieuw = T(uid('t'), fase, planFilter.ruimte || 'Algemeen', 'Nieuwe taak', 'Normaal', []);
+  const laatste = state.tasks.map(t => t.fase).lastIndexOf(fase);
+  if (laatste === -1) state.tasks.push(nieuw);
+  else state.tasks.splice(laatste + 1, 0, nieuw);
+  save();
+  renderPlanning();
+  const veld = content.querySelector(`tr[data-id="${nieuw.id}"] input[data-field="taak"]`);
+  if (veld) { veld.focus(); veld.select(); }
+}
+
 function bindPlanning() {
   // Filters
   content.querySelectorAll('[data-filter]').forEach(el => {
@@ -558,9 +574,12 @@ function bindPlanning() {
   });
 
   document.getElementById('btn-add-task').addEventListener('click', () => {
-    state.tasks.push(T(uid('t'), planFilter.fase || '0', planFilter.ruimte || 'Algemeen', 'Nieuwe taak', 'Normaal', []));
-    save();
-    renderPlanning();
+    addTaskToFase(planFilter.fase || '0');
+  });
+
+  // Per fase een taak toevoegen via de knop in de fasekop
+  content.querySelectorAll('.btn-fase-add').forEach(btn => {
+    btn.addEventListener('click', () => addTaskToFase(btn.dataset.fase));
   });
 
   // Celwijzigingen
