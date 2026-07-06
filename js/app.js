@@ -457,7 +457,7 @@ function renderPlanning() {
       </select>
       <select data-filter="ruimte">
         <option value="">Alle ruimtes</option>
-        ${RUIMTES.map(r => `<option ${planFilter.ruimte === r ? 'selected' : ''}>${r}</option>`).join('')}
+        ${alleRuimtes().map(r => `<option ${planFilter.ruimte === r ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
       <select data-filter="status">
         <option value="">Alle statussen</option>
@@ -488,9 +488,11 @@ function renderPlanning() {
     </div>
     <div class="table-footer">
       <button class="btn btn-primary" id="btn-add-task">＋ Taak toevoegen</button>
+      <button class="btn" id="btn-add-room">＋ Ruimte toevoegen</button>
     </div>`;
 
   bindPlanning();
+  bindDragHandles();
 }
 
 function taskRow(t) {
@@ -503,6 +505,7 @@ function taskRow(t) {
   return `
     <tr data-id="${t.id}" class="${t.status === 'Gereed' ? 'done' : ''} ${blocked && t.status !== 'Gereed' ? 'blocked-row' : ''}">
       <td class="row-tools">
+        <span class="drag-handle" title="Sleep om de taak te verplaatsen (ook naar een andere ruimte)">⠿</span>
         ${t.status === 'Gereed' ? '' : blocked
         ? `<span class="badge blocked" title="Wacht op: ${esc(blockingDeps(t).map(d => d.taak).join(', '))}">⛔</span>`
         : `<span class="badge ready" title="Alle voorgaande taken zijn gereed – kan opgepakt worden">▶</span>`}
@@ -534,10 +537,98 @@ function taskRow(t) {
     </tr>`;
 }
 
-// Ruimtes in vaste volgorde, met eventuele zelfbedachte ruimtes achteraan
+// Standaardruimtes plus zelf toegevoegde ruimtes
+function alleRuimtes() {
+  return [...RUIMTES, ...(state.extraRuimtes || []).filter(r => !RUIMTES.includes(r))];
+}
+
+// Ruimtes in vaste volgorde, met eventuele onbekende ruimtes uit taken achteraan
 function ruimteVolgorde(tasks) {
-  const extra = [...new Set(tasks.map(t => t.ruimte).filter(r => !RUIMTES.includes(r)))];
-  return [...RUIMTES, ...extra];
+  const bekend = alleRuimtes();
+  const extra = [...new Set(tasks.map(t => t.ruimte).filter(r => !bekend.includes(r)))];
+  return [...bekend, ...extra];
+}
+
+/* ---- Taken verslepen (werkt met muis én touch) ---- */
+
+let dragState = null;
+
+function clearDropMarkers() {
+  content.querySelectorAll('.drop-above, .drop-below').forEach(el =>
+    el.classList.remove('drop-above', 'drop-below'));
+}
+
+function endDrag() {
+  clearDropMarkers();
+  content.querySelectorAll('tr.dragging').forEach(r => r.classList.remove('dragging'));
+  dragState = null;
+}
+
+// Verplaats een taak in de lijst; hij neemt de ruimte van de doelplek over
+function moveTask(dragId, targetId, ervoor) {
+  const van = state.tasks.findIndex(t => t.id === dragId);
+  if (van === -1) return;
+  const taak = state.tasks.splice(van, 1)[0];
+  const naar = state.tasks.findIndex(t => t.id === targetId);
+  if (naar === -1) { state.tasks.splice(van, 0, taak); return; }
+  taak.ruimte = state.tasks[naar].ruimte;
+  state.tasks.splice(ervoor ? naar : naar + 1, 0, taak);
+  save();
+  renderPlanning();
+}
+
+// Op een ruimtekop laten vallen = bovenaan die ruimte plaatsen
+function moveTaskToRoomStart(dragId, ruimte) {
+  const van = state.tasks.findIndex(t => t.id === dragId);
+  if (van === -1) return;
+  const taak = state.tasks.splice(van, 1)[0];
+  taak.ruimte = ruimte;
+  const eerste = state.tasks.findIndex(t => t.ruimte === ruimte);
+  if (eerste === -1) state.tasks.push(taak);
+  else state.tasks.splice(eerste, 0, taak);
+  save();
+  renderPlanning();
+}
+
+function bindDragHandles() {
+  content.querySelectorAll('.drag-handle').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const tr = h.closest('tr');
+      dragState = { id: tr.dataset.id, over: null, ervoor: false };
+      tr.classList.add('dragging');
+      h.setPointerCapture(e.pointerId);
+    });
+    h.addEventListener('pointermove', e => {
+      if (!dragState) return;
+      // Meescrollen wanneer je bij de rand van het scherm komt
+      const marge = 70;
+      if (e.clientY < marge) window.scrollBy(0, -14);
+      else if (e.clientY > window.innerHeight - marge) window.scrollBy(0, 14);
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const tr = el && el.closest ? el.closest('#content tbody tr') : null;
+      clearDropMarkers();
+      if (!tr || tr.dataset.id === dragState.id) { dragState.over = null; return; }
+      const rect = tr.getBoundingClientRect();
+      dragState.over = tr;
+      dragState.ervoor = e.clientY < rect.top + rect.height / 2;
+      tr.classList.add(dragState.ervoor ? 'drop-above' : 'drop-below');
+    });
+    h.addEventListener('pointerup', () => {
+      if (!dragState) return;
+      const { id, over, ervoor } = dragState;
+      endDrag();
+      if (!over) return;
+      if (over.classList.contains('fase-header')) {
+        const knop = over.querySelector('.btn-add-group');
+        if (knop) moveTaskToRoomStart(id, knop.dataset.ruimte);
+      } else if (over.dataset.id) {
+        moveTask(id, over.dataset.id, ervoor);
+      }
+    });
+    h.addEventListener('pointercancel', endDrag);
+  });
 }
 
 // Nieuwe taak onderaan de gekozen ruimte invoegen (blijft zo netjes gegroepeerd)
@@ -579,6 +670,18 @@ function bindPlanning() {
 
   document.getElementById('btn-add-task').addEventListener('click', () => {
     addTaskToRuimte(planFilter.ruimte || 'Algemeen');
+  });
+
+  document.getElementById('btn-add-room').addEventListener('click', () => {
+    const naam = prompt('Naam van de nieuwe ruimte:');
+    if (!naam || !naam.trim()) return;
+    const ruimte = naam.trim();
+    if (!alleRuimtes().includes(ruimte)) {
+      state.extraRuimtes = state.extraRuimtes || [];
+      state.extraRuimtes.push(ruimte);
+    }
+    // Meteen een eerste taak aanmaken, zodat de ruimte direct zichtbaar is
+    addTaskToRuimte(ruimte);
   });
 
   // Per ruimte een taak toevoegen via de knop in de ruimtekop
@@ -753,7 +856,7 @@ function renderMaterialen() {
     <div class="filterbar">
       <select id="mat-filter">
         <option value="">Alle ruimtes</option>
-        ${RUIMTES.map(r => `<option ${materiaalFilter === r ? 'selected' : ''}>${r}</option>`).join('')}
+        ${alleRuimtes().map(r => `<option ${materiaalFilter === r ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
       <span style="color:var(--text-muted);font-size:13px">${list.filter(m => m.verwerkt).length} van ${list.length} verwerkt</span>
     </div>
@@ -768,7 +871,7 @@ function renderMaterialen() {
             <tr data-id="${m.id}" class="${m.verwerkt ? 'done' : ''}">
               <td>
                 <select data-field="ruimte">
-                  ${RUIMTES.map(r => `<option ${m.ruimte === r ? 'selected' : ''}>${r}</option>`).join('')}
+                  ${alleRuimtes().map(r => `<option ${m.ruimte === r ? 'selected' : ''}>${r}</option>`).join('')}
                 </select>
               </td>
               <td style="min-width:190px"><input data-field="materiaal" value="${esc(m.materiaal)}"></td>

@@ -128,9 +128,24 @@ main {
 }
 .btn-icon:hover { background: var(--red-soft); color: var(--red); }
 
-/* Eerste kolom van de planning: blokkade-indicator + verwijderknop,
-   vooraan zodat ze zonder scrollen bereikbaar zijn */
+/* Eerste kolom van de planning: sleepgreep, blokkade-indicator en
+   verwijderknop, vooraan zodat ze zonder scrollen bereikbaar zijn */
 td.row-tools { white-space: nowrap; }
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 15px;
+  padding: 4px 6px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* nodig om op touchscreens te kunnen slepen */
+  display: inline-block;
+}
+.drag-handle:hover { color: var(--accent); }
+tr.dragging { opacity: .45; cursor: grabbing; }
+tr.drop-above td { border-top: 3px solid var(--accent); }
+tr.drop-below td { border-bottom: 3px solid var(--accent); }
 
 /* ---------- Kaarten & panelen ---------- */
 .grid { display: grid; gap: 16px; }
