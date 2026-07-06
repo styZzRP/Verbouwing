@@ -269,10 +269,6 @@ function taskById(id) {
   return state.tasks.find(t => t.id === id);
 }
 
-function taskLabel(t) {
-  return t.ruimte + ' · ' + t.taak;
-}
-
 // Een taak is geblokkeerd zolang niet al haar afhankelijkheden gereed zijn
 function blockingDeps(t) {
   return (t.deps || [])
@@ -440,19 +436,17 @@ function renderPlanning() {
     (!planFilter.zoek || (t.taak + ' ' + t.ruimte + ' ' + t.opmerking + ' ' + t.materiaal).toLowerCase().includes(planFilter.zoek.toLowerCase()))
   );
 
-  // Groepeer per fase, in bouwvolgorde
+  // Groepeer per ruimte, in vaste (bouwlogische) volgorde
   const rows = [];
-  let lastFase = null;
-  for (const t of tasks) {
-    if (t.fase !== lastFase) {
-      rows.push(`<tr class="fase-header"><td colspan="12">
-        <div class="fase-header-flex">
-          <span>${esc(FASEN[t.fase] || 'Fase ' + t.fase)}</span>
-          <button class="btn-fase-add" data-fase="${t.fase}" title="Taak toevoegen aan deze fase">＋ taak toevoegen</button>
-        </div></td></tr>`);
-      lastFase = t.fase;
-    }
-    rows.push(taskRow(t));
+  for (const r of ruimteVolgorde(tasks)) {
+    const groep = tasks.filter(t => t.ruimte === r);
+    if (!groep.length) continue;
+    rows.push(`<tr class="fase-header"><td colspan="12">
+      <div class="fase-header-flex">
+        <span>${esc(r)}</span>
+        <button class="btn-add-group" data-ruimte="${esc(r)}" title="Taak toevoegen aan ${esc(r)}">＋ taak toevoegen</button>
+      </div></td></tr>`);
+    rows.push(...groep.map(taskRow));
   }
 
   content.innerHTML = `
@@ -485,7 +479,7 @@ function renderPlanning() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th></th><th>Prio</th><th>Ruimte</th><th>Taak</th><th>Wie</th>
+          <th></th><th>Prio</th><th>Fase</th><th>Taak</th><th>Wie</th>
           <th>Start</th><th>Eind</th><th>Afhankelijk van</th><th>Status</th>
           <th>% gereed</th><th>Materiaal</th><th>Opmerking</th>
         </tr></thead>
@@ -520,8 +514,8 @@ function taskRow(t) {
         </select>
       </td>
       <td>
-        <select data-field="ruimte">
-          ${RUIMTES.map(r => `<option ${t.ruimte === r ? 'selected' : ''}>${r}</option>`).join('')}
+        <select data-field="fase" title="${esc(FASEN[t.fase] || '')}">
+          ${Object.entries(FASEN).map(([k, v]) => `<option value="${k}" ${t.fase === k ? 'selected' : ''} title="${esc(v)}">Fase ${k}</option>`).join('')}
         </select>
       </td>
       <td style="min-width:190px"><input data-field="taak" value="${esc(t.taak)}"></td>
@@ -540,10 +534,18 @@ function taskRow(t) {
     </tr>`;
 }
 
-// Nieuwe taak onderaan de gekozen fase invoegen (blijft zo netjes gegroepeerd)
-function addTaskToFase(fase) {
-  const nieuw = T(uid('t'), fase, planFilter.ruimte || 'Algemeen', 'Nieuwe taak', 'Normaal', []);
-  const laatste = state.tasks.map(t => t.fase).lastIndexOf(fase);
+// Ruimtes in vaste volgorde, met eventuele zelfbedachte ruimtes achteraan
+function ruimteVolgorde(tasks) {
+  const extra = [...new Set(tasks.map(t => t.ruimte).filter(r => !RUIMTES.includes(r)))];
+  return [...RUIMTES, ...extra];
+}
+
+// Nieuwe taak onderaan de gekozen ruimte invoegen (blijft zo netjes gegroepeerd)
+function addTaskToRuimte(ruimte) {
+  const laatste = state.tasks.map(t => t.ruimte).lastIndexOf(ruimte);
+  // Fase overnemen van de laatste taak in die ruimte (of het actieve filter)
+  const fase = laatste >= 0 ? state.tasks[laatste].fase : (planFilter.fase || '0');
+  const nieuw = T(uid('t'), fase, ruimte, 'Nieuwe taak', 'Normaal', []);
   if (laatste === -1) state.tasks.push(nieuw);
   else state.tasks.splice(laatste + 1, 0, nieuw);
   save();
@@ -576,12 +578,12 @@ function bindPlanning() {
   });
 
   document.getElementById('btn-add-task').addEventListener('click', () => {
-    addTaskToFase(planFilter.fase || '0');
+    addTaskToRuimte(planFilter.ruimte || 'Algemeen');
   });
 
-  // Per fase een taak toevoegen via de knop in de fasekop
-  content.querySelectorAll('.btn-fase-add').forEach(btn => {
-    btn.addEventListener('click', () => addTaskToFase(btn.dataset.fase));
+  // Per ruimte een taak toevoegen via de knop in de ruimtekop
+  content.querySelectorAll('.btn-add-group').forEach(btn => {
+    btn.addEventListener('click', () => addTaskToRuimte(btn.dataset.ruimte));
   });
 
   // Celwijzigingen
@@ -631,15 +633,14 @@ function openDepsModal(task) {
   const body = document.getElementById('modal-body');
 
   let html = '';
-  let lastFase = null;
-  for (const t of state.tasks) {
-    if (t.id === task.id) continue;
-    if (t.fase !== lastFase) {
-      html += `<div class="dep-fase">${esc(FASEN[t.fase] || 'Fase ' + t.fase)}</div>`;
-      lastFase = t.fase;
+  for (const r of ruimteVolgorde(state.tasks)) {
+    const groep = state.tasks.filter(t => t.ruimte === r && t.id !== task.id);
+    if (!groep.length) continue;
+    html += `<div class="dep-fase">${esc(r)}</div>`;
+    for (const t of groep) {
+      const checked = (task.deps || []).includes(t.id) ? 'checked' : '';
+      html += `<label><input type="checkbox" value="${t.id}" ${checked}> ${t.status === 'Gereed' ? '✅' : ''} ${esc(t.taak)}</label>`;
     }
-    const checked = (task.deps || []).includes(t.id) ? 'checked' : '';
-    html += `<label><input type="checkbox" value="${t.id}" ${checked}> ${t.status === 'Gereed' ? '✅' : ''} ${esc(taskLabel(t))}</label>`;
   }
   body.innerHTML = html;
   overlay.hidden = false;

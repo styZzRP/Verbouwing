@@ -289,7 +289,7 @@ tr.fase-header td {
   justify-content: flex-start;
   gap: 14px;
 }
-.btn-fase-add {
+.btn-add-group {
   border: 1px solid var(--accent);
   background: none;
   color: var(--accent);
@@ -303,7 +303,7 @@ tr.fase-header td {
   text-transform: none;
   letter-spacing: 0;
 }
-.btn-fase-add:hover { background: var(--accent); color: #fff; }
+.btn-add-group:hover { background: var(--accent); color: #fff; }
 tr.done td { opacity: .55; }
 tr.blocked-row { background: #fdf7f3; }
 
