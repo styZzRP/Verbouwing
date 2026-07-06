@@ -228,17 +228,19 @@ function seedData() {
       { id: 'm16', naam: 'Project Ons Thuis afgerond', datum: '', gereed: false },
     ],
 
-    /* ---------------- BESLISSINGEN ---------------- */
+    /* ---------------- BESLISSINGEN ----------------
+       koppeling: 'taak:<id>' of 'fase:<nr>' — zodra die taak of fase aan de
+       beurt is, verschijnt op het dashboard "Let op: beslissing maken". */
     decisions: [
-      { id: 'b01', onderdeel: 'Badkamer', beslissing: 'Type vloerverwarming badkamer', deadline: '', status: 'Open', opmerking: 'Mogelijkheid openhouden tijdens ruwbouw.' },
-      { id: 'b02', onderdeel: 'Badkamer', beslissing: 'Merk inbouwkranen', deadline: '', status: 'Open', opmerking: 'Nodig vóór installatiefase badkamer.' },
-      { id: 'b03', onderdeel: 'Badkamer', beslissing: 'Douchegoot', deadline: '', status: 'Open', opmerking: '' },
-      { id: 'b04', onderdeel: 'Badkamer', beslissing: 'Badkamertegels', deadline: '', status: 'Open', opmerking: 'Nodig vóór het uitbestede tegelwerk.' },
-      { id: 'b05', onderdeel: 'Hele woning', beslissing: 'Verlichting', deadline: '', status: 'Open', opmerking: '' },
-      { id: 'b06', onderdeel: 'Trap', beslissing: 'Trapbekleding', deadline: '', status: 'Open', opmerking: '' },
-      { id: 'b07', onderdeel: 'Master', beslissing: 'Positie airco', deadline: '', status: 'Open', opmerking: 'Nodig vóór koof schoorsteen / afwerking master.' },
-      { id: 'b08', onderdeel: 'Overloop', beslissing: 'Plaats slim paneel', deadline: '', status: 'Open', opmerking: '' },
-      { id: 'b09', onderdeel: 'Hele woning', beslissing: 'Kleur binnendeuren', deadline: '', status: 'Open', opmerking: '' },
+      { id: 'b01', onderdeel: 'Badkamer', beslissing: 'Type vloerverwarming badkamer', koppeling: 'taak:f2-bk-cement', deadline: '', status: 'Open', opmerking: 'Mogelijkheid openhouden tijdens ruwbouw.' },
+      { id: 'b02', onderdeel: 'Badkamer', beslissing: 'Merk inbouwkranen', koppeling: 'taak:f2-bk-kranen', deadline: '', status: 'Open', opmerking: 'Nodig vóór installatiefase badkamer.' },
+      { id: 'b03', onderdeel: 'Badkamer', beslissing: 'Douchegoot', koppeling: 'taak:f2-bk-goot', deadline: '', status: 'Open', opmerking: '' },
+      { id: 'b04', onderdeel: 'Badkamer', beslissing: 'Badkamertegels', koppeling: 'taak:f2-bk-tegels', deadline: '', status: 'Open', opmerking: 'Nodig vóór het uitbestede tegelwerk.' },
+      { id: 'b05', onderdeel: 'Hele woning', beslissing: 'Verlichting', koppeling: 'taak:f4-verlicht', deadline: '', status: 'Open', opmerking: '' },
+      { id: 'b06', onderdeel: 'Trap', beslissing: 'Trapbekleding', koppeling: 'taak:f5-bekleding', deadline: '', status: 'Open', opmerking: '' },
+      { id: 'b07', onderdeel: 'Master', beslissing: 'Positie airco', koppeling: 'taak:f2-ma-airco', deadline: '', status: 'Open', opmerking: 'Nodig vóór koof schoorsteen / afwerking master.' },
+      { id: 'b08', onderdeel: 'Overloop', beslissing: 'Plaats slim paneel', koppeling: 'taak:f2-ov-paneel', deadline: '', status: 'Open', opmerking: '' },
+      { id: 'b09', onderdeel: 'Hele woning', beslissing: 'Kleur binnendeuren', koppeling: 'fase:4', deadline: '', status: 'Open', opmerking: '' },
     ],
 
     /* ---------------- MATERIALEN ---------------- */

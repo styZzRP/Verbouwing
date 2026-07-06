@@ -361,6 +361,7 @@ function renderDashboard() {
 
   const volgendeMijlpaal = state.milestones.find(m => !m.gereed);
   const openBeslissingen = state.decisions.filter(d => d.status !== 'Beslist');
+  const waarschuwingen = beslissingWaarschuwingen();
 
   content.innerHTML = `
     <div class="grid grid-stats" style="margin-bottom:16px">
@@ -385,6 +386,20 @@ function renderDashboard() {
         <div style="color:var(--text-muted);font-size:13px">${openBeslissingen.length} open beslissing${openBeslissingen.length === 1 ? '' : 'en'}</div>
       </div>
     </div>
+
+    ${waarschuwingen.length ? `
+    <div class="card alert-card" style="margin-bottom:16px">
+      <h2>⚠ Let op: beslissing maken</h2>
+      <ul class="mini-list">
+        ${waarschuwingen.map(w => `
+          <li>
+            <span class="where">${esc(w.d.onderdeel)}</span>
+            <span>${esc(w.d.beslissing)}</span>
+            <span class="spacer"></span>
+            <span class="alert-reden">${esc(w.reden)}</span>
+          </li>`).join('')}
+      </ul>
+    </div>` : ''}
 
     <div class="card" style="margin-bottom:16px">
       <h2>Volgende mijlpaal</h2>
@@ -590,13 +605,16 @@ function moveTaskToRoomStart(dragId, ruimte) {
   renderPlanning();
 }
 
-function bindDragHandles() {
-  content.querySelectorAll('.drag-handle').forEach(h => {
+// Generieke sleepfunctie: handleSel = greepje, rowSel = versleepbare rijen,
+// onDrop krijgt (gesleept id, doelrij-element, ervoor?)
+function enableDrag(handleSel, rowSel, onDrop) {
+  content.querySelectorAll(handleSel).forEach(h => {
     h.addEventListener('pointerdown', e => {
       e.preventDefault();
-      const tr = h.closest('tr');
-      dragState = { id: tr.dataset.id, over: null, ervoor: false };
-      tr.classList.add('dragging');
+      const row = h.closest(rowSel);
+      if (!row) return;
+      dragState = { id: row.dataset.id, over: null, ervoor: false };
+      row.classList.add('dragging');
       h.setPointerCapture(e.pointerId);
     });
     h.addEventListener('pointermove', e => {
@@ -607,27 +625,42 @@ function bindDragHandles() {
       else if (e.clientY > window.innerHeight - marge) window.scrollBy(0, 14);
 
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const tr = el && el.closest ? el.closest('#content tbody tr') : null;
+      const row = el && el.closest ? el.closest(rowSel) : null;
       clearDropMarkers();
-      if (!tr || tr.dataset.id === dragState.id) { dragState.over = null; return; }
-      const rect = tr.getBoundingClientRect();
-      dragState.over = tr;
+      if (!row || !content.contains(row) || row.dataset.id === dragState.id) { dragState.over = null; return; }
+      const rect = row.getBoundingClientRect();
+      dragState.over = row;
       dragState.ervoor = e.clientY < rect.top + rect.height / 2;
-      tr.classList.add(dragState.ervoor ? 'drop-above' : 'drop-below');
+      row.classList.add(dragState.ervoor ? 'drop-above' : 'drop-below');
     });
     h.addEventListener('pointerup', () => {
       if (!dragState) return;
       const { id, over, ervoor } = dragState;
       endDrag();
-      if (!over) return;
-      if (over.classList.contains('fase-header')) {
-        const knop = over.querySelector('.btn-add-group');
-        if (knop) moveTaskToRoomStart(id, knop.dataset.ruimte);
-      } else if (over.dataset.id) {
-        moveTask(id, over.dataset.id, ervoor);
-      }
+      if (over && id) onDrop(id, over, ervoor);
     });
     h.addEventListener('pointercancel', endDrag);
+  });
+}
+
+// Element binnen een lijst verplaatsen op basis van id's
+function moveInArray(arr, dragId, targetId, ervoor) {
+  const van = arr.findIndex(x => x.id === dragId);
+  if (van === -1) return;
+  const item = arr.splice(van, 1)[0];
+  const naar = arr.findIndex(x => x.id === targetId);
+  if (naar === -1) { arr.splice(van, 0, item); return; }
+  arr.splice(ervoor ? naar : naar + 1, 0, item);
+}
+
+function bindDragHandles() {
+  enableDrag('.drag-handle', 'tbody tr', (id, over, ervoor) => {
+    if (over.classList.contains('fase-header')) {
+      const knop = over.querySelector('.btn-add-group');
+      if (knop) moveTaskToRoomStart(id, knop.dataset.ruimte);
+    } else if (over.dataset.id) {
+      moveTask(id, over.dataset.id, ervoor);
+    }
   });
 }
 
@@ -773,11 +806,16 @@ function renderMijlpalen() {
       <ol class="milestone-list">
         ${state.milestones.map(m => `
           <li class="${m.gereed ? 'done' : ''}" data-id="${m.id}">
-            <span class="ms-name">${esc(m.naam)}</span>
+            <span class="drag-handle" title="Sleep om de volgorde te wijzigen">⠿</span>
+            <input class="ms-name" data-field="naam" value="${esc(m.naam)}">
             <input type="date" data-field="datum" value="${esc(m.datum)}" title="Behaald op / gepland op">
             <input type="checkbox" data-field="gereed" ${m.gereed ? 'checked' : ''} title="Behaald">
+            <button class="btn-icon" data-action="delete" title="Mijlpaal verwijderen">🗑</button>
           </li>`).join('')}
       </ol>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" id="btn-add-milestone">＋ Mijlpaal toevoegen</button>
+      </div>
     </div>`;
 
   content.querySelectorAll('.milestone-list li').forEach(li => {
@@ -792,31 +830,108 @@ function renderMijlpalen() {
       m.datum = e.target.value;
       save();
     });
+    li.querySelector('[data-field="naam"]').addEventListener('change', e => {
+      m.naam = e.target.value;
+      save();
+    });
+    li.querySelector('[data-action="delete"]').addEventListener('click', () => {
+      if (!confirm(`Mijlpaal "${m.naam}" verwijderen?`)) return;
+      state.milestones = state.milestones.filter(x => x.id !== m.id);
+      save();
+      renderMijlpalen();
+    });
+  });
+
+  enableDrag('.drag-handle', '.milestone-list li', (id, over, ervoor) => {
+    moveInArray(state.milestones, id, over.dataset.id, ervoor);
+    save();
+    renderMijlpalen();
+  });
+
+  document.getElementById('btn-add-milestone').addEventListener('click', () => {
+    const m = { id: uid('m'), naam: 'Nieuwe mijlpaal', datum: '', gereed: false };
+    state.milestones.push(m);
+    save();
+    renderMijlpalen();
+    const veld = content.querySelector(`li[data-id="${m.id}"] input[data-field="naam"]`);
+    if (veld) { veld.focus(); veld.select(); }
   });
 }
 
 /* ---------------- 4. Beslissingen ---------------- */
 
+// Keuzelijst om een beslissing te koppelen aan een fase of taak
+function koppelOpties(geselecteerd) {
+  const sel = geselecteerd || '';
+  let html = '<option value="">— niet gekoppeld —</option>';
+  html += '<optgroup label="Fasen">'
+    + Object.entries(FASEN).map(([k, v]) =>
+        `<option value="fase:${k}" ${sel === 'fase:' + k ? 'selected' : ''}>${esc(v)}</option>`).join('')
+    + '</optgroup>';
+  for (const r of ruimteVolgorde(state.tasks)) {
+    const groep = state.tasks.filter(t => t.ruimte === r);
+    if (!groep.length) continue;
+    html += `<optgroup label="Taak · ${esc(r)}">`
+      + groep.map(t => `<option value="taak:${t.id}" ${sel === 'taak:' + t.id ? 'selected' : ''}>${esc(t.taak)}</option>`).join('')
+      + '</optgroup>';
+  }
+  return html;
+}
+
+// Open beslissingen die nú aandacht vragen: de gekoppelde taak of fase is
+// aan de beurt, of de deadline is verstreken/nadert (14 dagen)
+function beslissingWaarschuwingen() {
+  const vandaag = new Date().toISOString().slice(0, 10);
+  const binnenkort = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+  const uit = [];
+  for (const d of state.decisions) {
+    if (d.status === 'Beslist') continue;
+    let reden = '';
+    const k = d.koppeling || '';
+    if (k.startsWith('taak:')) {
+      const t = taskById(k.slice(5));
+      if (t && t.status !== 'Gereed') {
+        if (t.status === 'Bezig') reden = `taak “${t.taak}” is al bezig!`;
+        else if (isActionable(t)) reden = `taak “${t.taak}” kan gestart worden`;
+      }
+    } else if (k.startsWith('fase:')) {
+      const f = k.slice(5);
+      if (state.tasks.some(t => t.fase === f && t.status !== 'Gereed' && (t.status === 'Bezig' || isActionable(t)))) {
+        reden = `${FASEN[f] || 'fase ' + f} is aan de beurt`;
+      }
+    }
+    if (!reden && d.deadline) {
+      if (d.deadline < vandaag) reden = `deadline verstreken (${fmtDate(d.deadline)})`;
+      else if (d.deadline <= binnenkort) reden = `deadline nadert (${fmtDate(d.deadline)})`;
+    }
+    if (reden) uit.push({ d, reden });
+  }
+  return uit;
+}
+
 function renderBeslissingen() {
   const today = new Date().toISOString().slice(0, 10);
-  const sorted = [...state.decisions].sort((a, b) => {
-    if ((a.status === 'Beslist') !== (b.status === 'Beslist')) return a.status === 'Beslist' ? 1 : -1;
-    return (a.deadline || '9999') < (b.deadline || '9999') ? -1 : 1;
-  });
 
   content.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Onderdeel</th><th>Beslissing</th><th>Uiterlijk beslissen</th><th>Status</th><th>Opmerking</th><th></th>
+          <th></th><th>Onderdeel</th><th>Beslissing</th><th>Gekoppeld aan</th>
+          <th>Uiterlijk beslissen</th><th>Status</th><th>Opmerking</th><th></th>
         </tr></thead>
         <tbody>
-          ${sorted.map(d => {
+          ${state.decisions.map(d => {
             const teLaat = d.status !== 'Beslist' && d.deadline && d.deadline < today;
             return `
             <tr data-id="${d.id}" class="${d.status === 'Beslist' ? 'done' : ''}">
+              <td class="row-tools"><span class="drag-handle" title="Sleep om de volgorde te wijzigen">⠿</span></td>
               <td style="min-width:110px"><input data-field="onderdeel" value="${esc(d.onderdeel)}"></td>
               <td style="min-width:200px"><input data-field="beslissing" value="${esc(d.beslissing)}"></td>
+              <td style="min-width:170px;max-width:230px">
+                <select data-field="koppeling" title="Op het dashboard verschijnt een waarschuwing zodra deze fase of taak aan de beurt is">
+                  ${koppelOpties(d.koppeling)}
+                </select>
+              </td>
               <td>
                 <input type="date" data-field="deadline" value="${esc(d.deadline)}">
                 ${teLaat ? '<span class="badge blocked" title="Deadline verstreken!">⚠ te laat</span>' : ''}
@@ -839,8 +954,13 @@ function renderBeslissingen() {
     </div>`;
 
   bindSimpleTable(state.decisions, 'decisions', renderBeslissingen, ['status', 'deadline']);
+  enableDrag('.drag-handle', 'tbody tr[data-id]', (id, over, ervoor) => {
+    moveInArray(state.decisions, id, over.dataset.id, ervoor);
+    save();
+    renderBeslissingen();
+  });
   document.getElementById('btn-add-decision').addEventListener('click', () => {
-    state.decisions.push({ id: uid('b'), onderdeel: '', beslissing: 'Nieuwe beslissing', deadline: '', status: 'Open', opmerking: '' });
+    state.decisions.push({ id: uid('b'), onderdeel: '', beslissing: 'Nieuwe beslissing', koppeling: '', deadline: '', status: 'Open', opmerking: '' });
     save();
     renderBeslissingen();
   });
