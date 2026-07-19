@@ -20,6 +20,12 @@
   --blue-soft: #e3ecf5;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(43, 40, 34, .08);
+
+  /* Pastelkleur per fase */
+  --fase1-bg: #fbe3e6;  --fase1-fg: #9d3c50;  /* sloopwerk & voorbereiding – roze */
+  --fase2-bg: #dfeaf7;  --fase2-fg: #34618f;  /* ruwbouw & installaties – blauw  */
+  --fase3-bg: #f7ecd2;  --fase3-fg: #8a6a14;  /* casco afbouw – zand             */
+  --fase4-bg: #e0f0e2;  --fase4-fg: #3d7a44;  /* afwerking – groen               */
 }
 
 * { box-sizing: border-box; }
@@ -318,6 +324,42 @@ tr.fase-header td {
   justify-content: flex-start;
   gap: 14px;
 }
+
+/* Fasekleuren: chip in de ruimtekop + gekleurd fase-label per taakrij */
+.fase-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 12px;
+  border-radius: 20px;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.fase-chip.klaar, .fase-select.klaar { background: var(--green-soft); color: var(--green); }
+.fase-1 { background: var(--fase1-bg); color: var(--fase1-fg); }
+.fase-2 { background: var(--fase2-bg); color: var(--fase2-fg); }
+.fase-3 { background: var(--fase3-bg); color: var(--fase3-fg); }
+.fase-4 { background: var(--fase4-bg); color: var(--fase4-fg); }
+
+td select.fase-select {
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  min-width: 88px;
+  text-align: center;
+}
+td select.fase-select.fase-1, td select.fase-select.fase-1:hover { background: var(--fase1-bg); color: var(--fase1-fg); }
+td select.fase-select.fase-2, td select.fase-select.fase-2:hover { background: var(--fase2-bg); color: var(--fase2-fg); }
+td select.fase-select.fase-3, td select.fase-select.fase-3:hover { background: var(--fase3-bg); color: var(--fase3-fg); }
+td select.fase-select.fase-4, td select.fase-select.fase-4:hover { background: var(--fase4-bg); color: var(--fase4-fg); }
+
+/* Dun gekleurd randje links per taakrij, in de fasekleur */
+tr.fase-row-1 > td:first-child { box-shadow: inset 4px 0 0 var(--fase1-fg); }
+tr.fase-row-2 > td:first-child { box-shadow: inset 4px 0 0 var(--fase2-fg); }
+tr.fase-row-3 > td:first-child { box-shadow: inset 4px 0 0 var(--fase3-fg); }
+tr.fase-row-4 > td:first-child { box-shadow: inset 4px 0 0 var(--fase4-fg); }
 .btn-add-group {
   border: 1px solid var(--accent);
   background: none;

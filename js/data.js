@@ -3,17 +3,16 @@
    Gebaseerd op Ontwerpdocument v1.0
    ============================================================ */
 
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
 const STORAGE_KEY = 'onsThuisPlanner';
 
+/* Vier functionele fases; elke fase heeft een eigen pastelkleur
+   zodat je in één oogopslag ziet in welke fase een ruimte zit. */
 const FASEN = {
-  '0': 'Fase 0 · Voorbereiding',
-  '1': 'Fase 1 · Begane grond',
-  '2': 'Fase 2 · Eerste verdieping',
-  '3': 'Fase 3 · Stukadoor',
+  '1': 'Fase 1 · Sloopwerk & voorbereiding',
+  '2': 'Fase 2 · Ruwbouw & installaties',
+  '3': 'Fase 3 · Casco afbouw',
   '4': 'Fase 4 · Afwerking',
-  '5': 'Fase 5 · Trap',
-  '6': 'Fase 6 · Washok / bijkeuken',
 };
 
 const RUIMTES = [
@@ -50,99 +49,102 @@ function seedData() {
   return {
     version: DATA_VERSION,
 
-    /* ---------------- PLANNING ---------------- */
+    /* ---------------- PLANNING ----------------
+       Fase per taak: 1 = sloopwerk & voorbereiding, 2 = ruwbouw &
+       installaties, 3 = casco afbouw (gips/stucklaar/stuc/waterdichting),
+       4 = afwerking. */
     tasks: [
-      // Fase 0 – Voorbereiding
-      T('f0-bouwplaats', '0', 'Algemeen', 'Bouwplaats inrichten', 'Hoog', []),
-      T('f0-opruimen',   '0', 'Algemeen', 'Opruimen', 'Normaal', []),
-      T('f0-opslag',     '0', 'Algemeen', 'Opslag maken', 'Normaal', ['f0-opruimen']),
-      T('f0-materiaal',  '0', 'Algemeen', 'Materialen organiseren', 'Normaal', ['f0-opslag']),
+      // Algemeen – voorbereiding
+      T('f0-bouwplaats', '1', 'Algemeen', 'Bouwplaats inrichten', 'Hoog', []),
+      T('f0-opruimen',   '1', 'Algemeen', 'Opruimen', 'Normaal', []),
+      T('f0-opslag',     '1', 'Algemeen', 'Opslag maken', 'Normaal', ['f0-opruimen']),
+      T('f0-materiaal',  '1', 'Algemeen', 'Materialen organiseren', 'Normaal', ['f0-opslag']),
 
-      // Fase 1 – Begane grond: nieuwe trap
-      T('f1-trap', '1', 'Trap', 'Nieuwe trap plaatsen', 'Hoog', ['f0-bouwplaats']),
+      // Begane grond: nieuwe trap
+      T('f1-trap', '2', 'Trap', 'Nieuwe trap plaatsen', 'Hoog', ['f0-bouwplaats']),
 
-      // Fase 1 – Hal beneden (direct na de trap; stucklaar, nog niet stucen/schilderen)
-      T('f1-hal-water',    '1', 'Hal beneden', 'Waterleidingen aanleggen', 'Hoog', ['f1-trap']),
-      T('f1-hal-elektra',  '1', 'Hal beneden', 'Nieuwe elektra aanleggen', 'Hoog', ['f1-trap']),
-      T('f1-hal-plafond',  '1', 'Hal beneden', 'Plafond maken', 'Normaal', ['f1-hal-water', 'f1-hal-elektra']),
-      T('f1-hal-gips',     '1', 'Hal beneden', 'Gipsplaten aanbrengen', 'Normaal', ['f1-hal-plafond'],
+      // Hal beneden (direct na de trap; stucklaar, nog niet stucen/schilderen)
+      T('f1-hal-water',    '2', 'Hal beneden', 'Waterleidingen aanleggen', 'Hoog', ['f1-trap']),
+      T('f1-hal-elektra',  '2', 'Hal beneden', 'Nieuwe elektra aanleggen', 'Hoog', ['f1-trap']),
+      T('f1-hal-plafond',  '2', 'Hal beneden', 'Plafond maken', 'Normaal', ['f1-hal-water', 'f1-hal-elektra']),
+      T('f1-hal-gips',     '3', 'Hal beneden', 'Gipsplaten aanbrengen', 'Normaal', ['f1-hal-plafond'],
         { opmerking: 'Eerst checklist "Voor gips" afwerken!' }),
-      T('f1-hal-stucklaar','1', 'Hal beneden', 'Stucklaar maken', 'Normaal', ['f1-hal-gips'],
-        { opmerking: 'Nog NIET stucen of schilderen – stukadoor komt één keer (fase 3).' }),
+      T('f1-hal-stucklaar','3', 'Hal beneden', 'Stucklaar maken', 'Normaal', ['f1-hal-gips'],
+        { opmerking: 'Nog NIET stucen of schilderen – stukadoor komt één keer.' }),
 
-      // Fase 1 – Nieuw kantoor
-      T('f1-kantoor-wand',     '1', 'Kantoor', 'Wand plaatsen', 'Hoog', ['f1-hal-stucklaar']),
-      T('f1-kantoor-kozijn',   '1', 'Kantoor', 'Kozijn plaatsen', 'Normaal', ['f1-kantoor-wand']),
-      T('f1-kantoor-deur',     '1', 'Kantoor', 'Deur plaatsen', 'Normaal', ['f1-kantoor-kozijn']),
-      T('f1-kantoor-elektra',  '1', 'Kantoor', 'Elektra aanleggen', 'Hoog', ['f1-kantoor-wand']),
-      T('f1-kantoor-gips',     '1', 'Kantoor', 'Gipsplaten aanbrengen', 'Normaal', ['f1-kantoor-elektra', 'f1-kantoor-kozijn'],
+      // Nieuw kantoor
+      T('f1-kantoor-wand',     '2', 'Kantoor', 'Wand plaatsen', 'Hoog', ['f1-hal-stucklaar']),
+      T('f1-kantoor-kozijn',   '2', 'Kantoor', 'Kozijn plaatsen', 'Normaal', ['f1-kantoor-wand']),
+      T('f1-kantoor-deur',     '2', 'Kantoor', 'Deur plaatsen', 'Normaal', ['f1-kantoor-kozijn']),
+      T('f1-kantoor-elektra',  '2', 'Kantoor', 'Elektra aanleggen', 'Hoog', ['f1-kantoor-wand']),
+      T('f1-kantoor-gips',     '3', 'Kantoor', 'Gipsplaten aanbrengen', 'Normaal', ['f1-kantoor-elektra', 'f1-kantoor-kozijn'],
         { opmerking: 'Eerst checklist "Voor gips" afwerken!' }),
-      T('f1-kantoor-stucklaar','1', 'Kantoor', 'Stucklaar maken', 'Normaal', ['f1-kantoor-gips'],
+      T('f1-kantoor-stucklaar','3', 'Kantoor', 'Stucklaar maken', 'Normaal', ['f1-kantoor-gips'],
         { opmerking: 'Mijlpaal: begane grond stucklaar.' }),
 
-      // Fase 2 – Kamer Thijs
-      T('f2-thijs-sloop',    '2', 'Kamer Thijs', 'Sloop- en breekwerk', 'Hoog', ['f1-kantoor-stucklaar']),
+      // Kamer Thijs
+      T('f2-thijs-sloop',    '1', 'Kamer Thijs', 'Sloop- en breekwerk', 'Hoog', ['f1-kantoor-stucklaar']),
       T('f2-thijs-elektra',  '2', 'Kamer Thijs', 'Elektra aanpassen', 'Hoog', ['f2-thijs-sloop']),
-      T('f2-thijs-gips',     '2', 'Kamer Thijs', 'Gipsplaten aanbrengen', 'Normaal', ['f2-thijs-elektra']),
-      T('f2-thijs-stucklaar','2', 'Kamer Thijs', 'Stucklaar maken', 'Normaal', ['f2-thijs-gips']),
-      T('f2-thijs-stuc',     '2', 'Kamer Thijs', 'Stucen', 'Normaal', ['f2-thijs-stucklaar'],
+      T('f2-thijs-gips',     '3', 'Kamer Thijs', 'Gipsplaten aanbrengen', 'Normaal', ['f2-thijs-elektra']),
+      T('f2-thijs-stucklaar','3', 'Kamer Thijs', 'Stucklaar maken', 'Normaal', ['f2-thijs-gips']),
+      T('f2-thijs-stuc',     '3', 'Kamer Thijs', 'Stucen', 'Normaal', ['f2-thijs-stucklaar'],
         { opmerking: 'Kamer wordt eerder afgewerkt zodat kinderen kunnen verhuizen.' }),
-      T('f2-thijs-schilder', '2', 'Kamer Thijs', 'Schilderen', 'Normaal', ['f2-thijs-stuc']),
-      T('f2-thijs-vloer',    '2', 'Kamer Thijs', 'Vloer leggen', 'Normaal', ['f2-thijs-schilder'],
+      T('f2-thijs-schilder', '4', 'Kamer Thijs', 'Schilderen', 'Normaal', ['f2-thijs-stuc']),
+      T('f2-thijs-vloer',    '4', 'Kamer Thijs', 'Vloer leggen', 'Normaal', ['f2-thijs-schilder'],
         { opmerking: 'Vloer pas na schilderwerk. Mijlpaal: Kamer Thijs gereed.' }),
 
-      // Fase 2 – Kamer Noor
-      T('f2-noor-sloop',    '2', 'Kamer Noor', 'Sloop- en breekwerk', 'Hoog', ['f2-thijs-vloer']),
+      // Kamer Noor
+      T('f2-noor-sloop',    '1', 'Kamer Noor', 'Sloop- en breekwerk', 'Hoog', ['f2-thijs-vloer']),
       T('f2-noor-elektra',  '2', 'Kamer Noor', 'Elektra aanpassen', 'Hoog', ['f2-noor-sloop']),
-      T('f2-noor-gips',     '2', 'Kamer Noor', 'Gipsplaten aanbrengen', 'Normaal', ['f2-noor-elektra']),
-      T('f2-noor-stucklaar','2', 'Kamer Noor', 'Stucklaar maken', 'Normaal', ['f2-noor-gips']),
-      T('f2-noor-stuc',     '2', 'Kamer Noor', 'Stucen', 'Normaal', ['f2-noor-stucklaar']),
-      T('f2-noor-schilder', '2', 'Kamer Noor', 'Schilderen', 'Normaal', ['f2-noor-stuc']),
-      T('f2-noor-vloer',    '2', 'Kamer Noor', 'Vloer leggen', 'Normaal', ['f2-noor-schilder'],
+      T('f2-noor-gips',     '3', 'Kamer Noor', 'Gipsplaten aanbrengen', 'Normaal', ['f2-noor-elektra']),
+      T('f2-noor-stucklaar','3', 'Kamer Noor', 'Stucklaar maken', 'Normaal', ['f2-noor-gips']),
+      T('f2-noor-stuc',     '3', 'Kamer Noor', 'Stucen', 'Normaal', ['f2-noor-stucklaar']),
+      T('f2-noor-schilder', '4', 'Kamer Noor', 'Schilderen', 'Normaal', ['f2-noor-stuc']),
+      T('f2-noor-vloer',    '4', 'Kamer Noor', 'Vloer leggen', 'Normaal', ['f2-noor-schilder'],
         { opmerking: 'Mijlpaal: Kamer Noor gereed → kinderkamers verhuizen.' }),
 
-      // Fase 2 – Inloopkast (vóór de master, i.v.m. sloopwerk en puinafvoer)
-      T('f2-ik-doorbreken','2', 'Inloopkast', 'Muur doorbreken', 'Hoog', ['f2-noor-vloer'],
+      // Inloopkast (vóór de master, i.v.m. sloopwerk en puinafvoer)
+      T('f2-ik-doorbreken','1', 'Inloopkast', 'Muur doorbreken', 'Hoog', ['f2-noor-vloer'],
         { opmerking: 'Inloopkast vóór afwerking master: voorkomt schade door sloop en puin.' }),
-      T('f2-ik-puin',      '2', 'Inloopkast', 'Puin afvoeren', 'Hoog', ['f2-ik-doorbreken']),
+      T('f2-ik-puin',      '1', 'Inloopkast', 'Puin afvoeren', 'Hoog', ['f2-ik-doorbreken']),
       T('f2-ik-wanden',    '2', 'Inloopkast', 'Nieuwe wanden plaatsen', 'Normaal', ['f2-ik-puin']),
       T('f2-ik-balken',    '2', 'Inloopkast', 'Balken plaatsen', 'Normaal', ['f2-ik-wanden']),
       T('f2-ik-plafond',   '2', 'Inloopkast', 'Plafondconstructie maken', 'Normaal', ['f2-ik-balken']),
       T('f2-ik-elektra',   '2', 'Inloopkast', 'Elektra aanleggen', 'Hoog', ['f2-ik-plafond']),
-      T('f2-ik-gips',      '2', 'Inloopkast', 'Gipsplaten aanbrengen', 'Normaal', ['f2-ik-elektra'],
+      T('f2-ik-gips',      '3', 'Inloopkast', 'Gipsplaten aanbrengen', 'Normaal', ['f2-ik-elektra'],
         { opmerking: 'Eerst checklist "Voor gips" afwerken!' }),
-      T('f2-ik-stucklaar', '2', 'Inloopkast', 'Stucklaar maken', 'Normaal', ['f2-ik-gips']),
-      T('f2-ik-stuc',      '2', 'Inloopkast', 'Stucen', 'Normaal', ['f2-ik-stucklaar']),
-      T('f2-ik-schilder',  '2', 'Inloopkast', 'Schilderen', 'Normaal', ['f2-ik-stuc']),
-      T('f2-ik-vloer',     '2', 'Inloopkast', 'Vloer leggen', 'Normaal', ['f2-ik-schilder']),
-      T('f2-ik-verlicht',  '2', 'Inloopkast', 'Verlichting monteren', 'Normaal', ['f2-ik-schilder']),
-      T('f2-ik-kasten',    '2', 'Inloopkast', 'IKEA-kasten opbouwen', 'Normaal', ['f2-ik-vloer'],
+      T('f2-ik-stucklaar', '3', 'Inloopkast', 'Stucklaar maken', 'Normaal', ['f2-ik-gips']),
+      T('f2-ik-stuc',      '3', 'Inloopkast', 'Stucen', 'Normaal', ['f2-ik-stucklaar']),
+      T('f2-ik-schilder',  '4', 'Inloopkast', 'Schilderen', 'Normaal', ['f2-ik-stuc']),
+      T('f2-ik-vloer',     '4', 'Inloopkast', 'Vloer leggen', 'Normaal', ['f2-ik-schilder']),
+      T('f2-ik-verlicht',  '4', 'Inloopkast', 'Verlichting monteren', 'Normaal', ['f2-ik-schilder']),
+      T('f2-ik-kasten',    '4', 'Inloopkast', 'IKEA-kasten opbouwen', 'Normaal', ['f2-ik-vloer'],
         { materiaal: 'IKEA PAX', opmerking: 'Mijlpaal: inloopkast gereed → kleding verhuizen.' }),
 
-      // Fase 2 – Master (pas nadat de inloopkast gereed is)
+      // Master (pas nadat de inloopkast gereed is)
       T('f2-ma-koof',     '2', 'Master', 'Koof schoorsteen maken', 'Normaal', ['f2-ik-kasten']),
       T('f2-ma-airco',    '2', 'Master', 'Airco plaatsen', 'Normaal', ['f2-ma-koof'],
         { opmerking: 'Beslissing "positie airco" moet eerst genomen zijn.' }),
-      T('f2-ma-afwerking','2', 'Master', 'Afwerking (stuc, schilderen, vloer)', 'Normaal', ['f2-ma-airco'],
+      T('f2-ma-afwerking','4', 'Master', 'Afwerking (stuc, schilderen, vloer)', 'Normaal', ['f2-ma-airco'],
         { opmerking: 'Mijlpaal: master gereed → master verhuizen.' }),
 
-      // Fase 2 – Overloop (incl. vlizotrap)
+      // Overloop (incl. vlizotrap)
       T('f2-ov-vlizo',    '2', 'Overloop', 'Vlizotrap plaatsen', 'Normaal', ['f2-ma-afwerking']),
       T('f2-ov-paneel',   '2', 'Overloop', 'Slim paneel monteren', 'Normaal', ['f2-ov-vlizo'],
         { opmerking: 'Beslissing "plaats slim paneel" moet eerst genomen zijn.' }),
-      T('f2-ov-zonwering','2', 'Overloop', 'Automatische zonwering monteren', 'Laag', ['f2-ov-vlizo']),
+      T('f2-ov-zonwering','4', 'Overloop', 'Automatische zonwering monteren', 'Laag', ['f2-ov-vlizo']),
       T('f2-ov-elektra',  '2', 'Overloop', 'Elektra aanleggen', 'Hoog', ['f2-ov-vlizo']),
-      T('f2-ov-gips',     '2', 'Overloop', 'Gipsplaten aanbrengen', 'Normaal', ['f2-ov-elektra'],
+      T('f2-ov-gips',     '3', 'Overloop', 'Gipsplaten aanbrengen', 'Normaal', ['f2-ov-elektra'],
         { opmerking: 'Eerst checklist "Voor gips" afwerken!' }),
-      T('f2-ov-afwerking','2', 'Overloop', 'Afwerking', 'Normaal', ['f2-ov-gips']),
+      T('f2-ov-afwerking','4', 'Overloop', 'Afwerking', 'Normaal', ['f2-ov-gips']),
 
-      // Fase 2 – Badkamer boven: ruwbouw
+      // Badkamer boven: ruwbouw
       T('f2-bk-wanden',  '2', 'Badkamer', 'Twee nieuwe wanden plaatsen', 'Hoog', ['f2-ov-gips']),
       T('f2-bk-douchewand','2', 'Badkamer', 'Wand inloopdouche plaatsen', 'Hoog', ['f2-bk-wanden']),
       T('f2-bk-balklaag','2', 'Badkamer', 'Balklaag maken', 'Normaal', ['f2-bk-douchewand']),
       T('f2-bk-plafond', '2', 'Badkamer', 'Plafondconstructie maken', 'Normaal', ['f2-bk-balklaag']),
 
-      // Fase 2 – Badkamer boven: installaties
+      // Badkamer boven: installaties
       T('f2-bk-water',    '2', 'Badkamer', 'Waterleidingen aanleggen', 'Hoog', ['f2-bk-plafond']),
       T('f2-bk-afvoer',   '2', 'Badkamer', 'Afvoer aanleggen', 'Hoog', ['f2-bk-plafond']),
       T('f2-bk-reservoir','2', 'Badkamer', 'Inbouwreservoir plaatsen', 'Hoog', ['f2-bk-afvoer']),
@@ -157,31 +159,31 @@ function seedData() {
       T('f2-bk-stopcontact','2', 'Badkamer', 'Stopcontacten aanleggen', 'Normaal', ['f2-bk-plafond'],
         { opmerking: 'Mogelijkheid vloerverwarming openhouden (beslissing).' }),
 
-      // Fase 2 – Badkamer boven: naar tegelklaar
-      T('f2-bk-cement',   '2', 'Badkamer', 'Cementplaten aanbrengen', 'Hoog',
+      // Badkamer boven: casco afbouw, naar tegelklaar
+      T('f2-bk-cement',   '3', 'Badkamer', 'Cementplaten aanbrengen', 'Hoog',
         ['f2-bk-reservoir', 'f2-bk-regendouche', 'f2-bk-goot', 'f2-bk-nis', 'f2-bk-ventilatie', 'f2-bk-spiegelverl', 'f2-bk-stopcontact']),
-      T('f2-bk-waterdicht','2', 'Badkamer', 'Waterdichting aanbrengen', 'Hoog', ['f2-bk-cement']),
-      T('f2-bk-kimband',  '2', 'Badkamer', 'Kimband aanbrengen', 'Hoog', ['f2-bk-waterdicht'],
+      T('f2-bk-waterdicht','3', 'Badkamer', 'Waterdichting aanbrengen', 'Hoog', ['f2-bk-cement']),
+      T('f2-bk-kimband',  '3', 'Badkamer', 'Kimband aanbrengen', 'Hoog', ['f2-bk-waterdicht'],
         { opmerking: 'Mijlpaal: badkamer tegelklaar.' }),
-      T('f2-bk-tegels',   '2', 'Badkamer', 'Tegelwerk (uitbesteed)', 'Hoog', ['f2-bk-kimband'],
+      T('f2-bk-tegels',   '4', 'Badkamer', 'Tegelwerk (uitbesteed)', 'Hoog', ['f2-bk-kimband'],
         { wie: 'Tegelzetter', opmerking: 'Beslissing "badkamertegels" moet eerst genomen zijn.' }),
 
-      // Fase 2 – Badkamer boven: na het tegelwerk (sanitair zelf monteren)
-      T('f2-bk-glaswand','2', 'Badkamer', 'Douchewand (glas) monteren', 'Normaal', ['f2-bk-tegels']),
-      T('f2-bk-toilet',  '2', 'Badkamer', 'Toilet monteren', 'Hoog', ['f2-bk-tegels']),
-      T('f2-bk-meubel',  '2', 'Badkamer', 'Badkamermeubel monteren', 'Normaal', ['f2-bk-tegels']),
-      T('f2-bk-spiegel', '2', 'Badkamer', 'Spiegel monteren', 'Normaal', ['f2-bk-meubel']),
-      T('f2-bk-kranen2', '2', 'Badkamer', 'Kranen afmonteren', 'Normaal', ['f2-bk-meubel']),
-      T('f2-bk-kitten',  '2', 'Badkamer', 'Kitwerk', 'Normaal', ['f2-bk-glaswand', 'f2-bk-toilet', 'f2-bk-kranen2']),
-      T('f2-bk-verlicht','2', 'Badkamer', 'Verlichting monteren', 'Normaal', ['f2-bk-tegels'],
+      // Badkamer boven: na het tegelwerk (sanitair zelf monteren)
+      T('f2-bk-glaswand','4', 'Badkamer', 'Douchewand (glas) monteren', 'Normaal', ['f2-bk-tegels']),
+      T('f2-bk-toilet',  '4', 'Badkamer', 'Toilet monteren', 'Hoog', ['f2-bk-tegels']),
+      T('f2-bk-meubel',  '4', 'Badkamer', 'Badkamermeubel monteren', 'Normaal', ['f2-bk-tegels']),
+      T('f2-bk-spiegel', '4', 'Badkamer', 'Spiegel monteren', 'Normaal', ['f2-bk-meubel']),
+      T('f2-bk-kranen2', '4', 'Badkamer', 'Kranen afmonteren', 'Normaal', ['f2-bk-meubel']),
+      T('f2-bk-kitten',  '4', 'Badkamer', 'Kitwerk', 'Normaal', ['f2-bk-glaswand', 'f2-bk-toilet', 'f2-bk-kranen2']),
+      T('f2-bk-verlicht','4', 'Badkamer', 'Verlichting monteren', 'Normaal', ['f2-bk-tegels'],
         { opmerking: 'Mijlpaal: badkamer gereed.' }),
 
-      // Fase 3 – Stukadoor (komt één keer voor de volledige woning)
+      // Stukadoor (komt één keer voor de volledige woning)
       T('f3-stukadoor', '3', 'Hele woning', 'Stukadoor: volledige woning stucen', 'Hoog',
         ['f1-hal-stucklaar', 'f1-kantoor-stucklaar', 'f2-ov-afwerking', 'f2-bk-kimband'],
         { wie: 'Stukadoor', opmerking: 'Eén keer voor alles. Eerst checklist "Voor stuc" afwerken. Mijlpaal: stukadoor gereed.' }),
 
-      // Fase 4 – Afwerking (volgorde: schilderen → vloer → plinten → schakelmateriaal → verlichting)
+      // Afwerking hele woning (volgorde: schilderen → vloer → plinten → schakelmateriaal → verlichting)
       T('f4-schilderen','4', 'Hele woning', 'Schilderen', 'Hoog', ['f3-stukadoor']),
       T('f4-vloer',     '4', 'Hele woning', 'PVC / vloerbedekking leggen', 'Hoog', ['f4-schilderen'],
         { opmerking: 'Vloeren pas na schilderwerk. Eerst checklist "Voor vloer" afwerken.' }),
@@ -190,21 +192,21 @@ function seedData() {
       T('f4-verlicht',  '4', 'Hele woning', 'Verlichting monteren', 'Normaal', ['f4-schilderen'],
         { opmerking: 'Beslissing "verlichting" moet eerst genomen zijn.' }),
 
-      // Fase 5 – Trap
-      T('f5-bekleding','5', 'Trap', 'Trapbekleding aanbrengen', 'Normaal', ['f4-vloer'],
+      // Trap afwerken
+      T('f5-bekleding','4', 'Trap', 'Trapbekleding aanbrengen', 'Normaal', ['f4-vloer'],
         { opmerking: 'Beslissing "trapbekleding" moet eerst genomen zijn.' }),
-      T('f5-leuning',  '5', 'Trap', 'Trapleuning monteren', 'Normaal', ['f5-bekleding'],
+      T('f5-leuning',  '4', 'Trap', 'Trapleuning monteren', 'Normaal', ['f5-bekleding'],
         { opmerking: 'Mijlpaal: trap volledig gereed.' }),
 
-      // Fase 6 – Begane grond badkamer → washok / bijkeuken
-      T('f6-sloop',     '6', 'Washok', 'Oude badkamer slopen', 'Hoog', ['f2-bk-kitten'],
+      // Begane grond badkamer → washok / bijkeuken
+      T('f6-sloop',     '1', 'Washok', 'Oude badkamer slopen', 'Hoog', ['f2-bk-kitten'],
         { opmerking: 'Pas slopen als de nieuwe badkamer boven werkt.' }),
-      T('f6-plafond',   '6', 'Washok', 'Plafond maken', 'Normaal', ['f6-sloop']),
-      T('f6-tegels',    '6', 'Washok', 'Eventueel tegels aanbrengen', 'Laag', ['f6-plafond']),
-      T('f6-kasten',    '6', 'Washok', 'Kasten plaatsen', 'Normaal', ['f6-tegels']),
-      T('f6-wasmachine','6', 'Washok', 'Wasmachine aansluiten', 'Normaal', ['f6-kasten']),
-      T('f6-droger',    '6', 'Washok', 'Droger aansluiten', 'Normaal', ['f6-kasten']),
-      T('f6-afwerking', '6', 'Washok', 'Afwerking', 'Normaal', ['f6-wasmachine', 'f6-droger'],
+      T('f6-plafond',   '2', 'Washok', 'Plafond maken', 'Normaal', ['f6-sloop']),
+      T('f6-tegels',    '4', 'Washok', 'Eventueel tegels aanbrengen', 'Laag', ['f6-plafond']),
+      T('f6-kasten',    '4', 'Washok', 'Kasten plaatsen', 'Normaal', ['f6-tegels']),
+      T('f6-wasmachine','4', 'Washok', 'Wasmachine aansluiten', 'Normaal', ['f6-kasten']),
+      T('f6-droger',    '4', 'Washok', 'Droger aansluiten', 'Normaal', ['f6-kasten']),
+      T('f6-afwerking', '4', 'Washok', 'Afwerking', 'Normaal', ['f6-wasmachine', 'f6-droger'],
         { opmerking: 'Mijlpaal: washok gereed → Project Ons Thuis afgerond!' }),
     ],
 

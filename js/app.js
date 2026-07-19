@@ -11,12 +11,46 @@ let currentTab = 'dashboard';
 const planFilter = { fase: '', ruimte: '', status: '', prioriteit: '', wie: '', zoek: '', alleenUitvoerbaar: false };
 let materiaalFilter = '';
 
+/* ---- Migratie van oude data (v1: 7 locatiefases 0-6 → v2: 4 werkfases) ----
+   Bekende taken krijgen de fase uit de nieuwe seed; onbekende (zelf
+   toegevoegde) taken worden omgezet via een globale tabel. Statussen,
+   percentages en al het andere blijven onaangetast. */
+
+function migrateState(data) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.tasks)) return data;
+  if ((data.version || 1) >= DATA_VERSION) return data;
+  // Alles lokaal houden: deze functie draait al bij het allereerste
+  // loadState(), vóór de rest van het script geïnitialiseerd is.
+  const oudNaarNieuw = { '0': '1', '1': '2', '2': '2', '3': '3', '4': '4', '5': '4', '6': '4' };
+  const seedFase = {};
+  seedData().tasks.forEach(t => { seedFase[t.id] = t.fase; });
+
+  data.tasks.forEach(t => {
+    t.fase = seedFase[t.id] || oudNaarNieuw[t.fase] || t.fase;
+  });
+  (data.decisions || []).forEach(d => {
+    if ((d.koppeling || '').startsWith('fase:')) {
+      const oud = d.koppeling.slice(5);
+      d.koppeling = 'fase:' + (oudNaarNieuw[oud] || oud);
+    }
+  });
+  data.version = DATA_VERSION;
+  return data;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      if (data && data.version === DATA_VERSION && Array.isArray(data.tasks)) return data;
+      if (data && Array.isArray(data.tasks)) {
+        if (data.version === DATA_VERSION) return data;
+        if ((data.version || 1) < DATA_VERSION) {
+          const m = migrateState(data);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(m));
+          return m;
+        }
+      }
     }
   } catch (e) { /* beschadigde opslag → opnieuw beginnen met seed */ }
   return seedData();
@@ -151,7 +185,7 @@ async function ghLoad() {
   if (!res.ok) throw new Error('GitHub antwoordde met ' + res.status);
   const j = await res.json();
   ghSha = j.sha;
-  return JSON.parse(b64decode(j.content));
+  return migrateState(JSON.parse(b64decode(j.content)));
 }
 
 async function pushToGitHub(tweedePoging) {
@@ -199,7 +233,7 @@ async function syncTick() {
     if (backend === 'server') {
       const res = await fetch(API, { cache: 'no-store' });
       if (!res.ok) throw new Error(res.status);
-      remote = await res.json();
+      remote = migrateState(await res.json());
     } else {
       remote = await ghLoad();
     }
@@ -459,6 +493,7 @@ function renderPlanning() {
     rows.push(`<tr class="fase-header"><td colspan="12">
       <div class="fase-header-flex">
         <span>${esc(r)}</span>
+        ${ruimteFaseChip(groep)}
         <button class="btn-add-group" data-ruimte="${esc(r)}" title="Taak toevoegen aan ${esc(r)}">＋ taak toevoegen</button>
       </div></td></tr>`);
     rows.push(...groep.map(taskRow));
@@ -510,6 +545,14 @@ function renderPlanning() {
   bindDragHandles();
 }
 
+// Chip in de ruimtekop: in welke fase zit deze ruimte nu?
+// = de fase van de eerste taak die nog niet gereed is.
+function ruimteFaseChip(groep) {
+  const open = groep.find(t => t.status !== 'Gereed');
+  if (!open) return '<span class="fase-chip klaar">✓ gereed</span>';
+  return `<span class="fase-chip fase-${esc(open.fase)}">${esc(FASEN[open.fase] || 'Fase ' + open.fase)}</span>`;
+}
+
 function taskRow(t) {
   const blocked = isBlocked(t);
   const deps = (t.deps || []).map(taskById).filter(Boolean);
@@ -518,7 +561,7 @@ function taskRow(t) {
     : '<span class="none">— klik om te kiezen</span>';
 
   return `
-    <tr data-id="${t.id}" class="${t.status === 'Gereed' ? 'done' : ''} ${blocked && t.status !== 'Gereed' ? 'blocked-row' : ''}">
+    <tr data-id="${t.id}" class="fase-row-${esc(t.fase)} ${t.status === 'Gereed' ? 'done' : ''} ${blocked && t.status !== 'Gereed' ? 'blocked-row' : ''}">
       <td class="row-tools">
         <span class="drag-handle" title="Sleep om de taak te verplaatsen (ook naar een andere ruimte)">⠿</span>
         ${t.status === 'Gereed' ? '' : blocked
@@ -532,7 +575,7 @@ function taskRow(t) {
         </select>
       </td>
       <td>
-        <select data-field="fase" title="${esc(FASEN[t.fase] || '')}">
+        <select data-field="fase" class="fase-select fase-${esc(t.fase)}" title="${esc(FASEN[t.fase] || '')}">
           ${Object.entries(FASEN).map(([k, v]) => `<option value="${k}" ${t.fase === k ? 'selected' : ''} title="${esc(v)}">Fase ${k}</option>`).join('')}
         </select>
       </td>
@@ -668,7 +711,7 @@ function bindDragHandles() {
 function addTaskToRuimte(ruimte) {
   const laatste = state.tasks.map(t => t.ruimte).lastIndexOf(ruimte);
   // Fase overnemen van de laatste taak in die ruimte (of het actieve filter)
-  const fase = laatste >= 0 ? state.tasks[laatste].fase : (planFilter.fase || '0');
+  const fase = laatste >= 0 ? state.tasks[laatste].fase : (planFilter.fase || '1');
   const nieuw = T(uid('t'), fase, ruimte, 'Nieuwe taak', 'Normaal', []);
   if (laatste === -1) state.tasks.push(nieuw);
   else state.tasks.splice(laatste + 1, 0, nieuw);
