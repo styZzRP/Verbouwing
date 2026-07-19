@@ -23,9 +23,9 @@
 
   /* Pastelkleur per fase */
   --fase1-bg: #fbe3e6;  --fase1-fg: #9d3c50;  /* sloopwerk & voorbereiding – roze */
-  --fase2-bg: #dfeaf7;  --fase2-fg: #34618f;  /* ruwbouw & installaties – blauw  */
+  --fase2-bg: #d4e4f9;  --fase2-fg: #2e5d92;  /* ruwbouw & installaties – blauw  */
   --fase3-bg: #f7ecd2;  --fase3-fg: #8a6a14;  /* casco afbouw – zand             */
-  --fase4-bg: #e0f0e2;  --fase4-fg: #3d7a44;  /* afwerking – groen               */
+  --fase4-bg: #d0edd6;  --fase4-fg: #2f7a3e;  /* afwerking – groen               */
 }
 
 * { box-sizing: border-box; }
